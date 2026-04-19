@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>OBC 12u Stats Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f8f8f6;
+  --sf: #ffffff;
+  --sf2: #f0f0ec;
+  --sf3: #e8e8e2;
+  --bd: #d4d4cc;
+  --tx: #1a1a1a;
+  --tx2: #4b5563;
+  --tx3: #9ca3af;
+  --ac: #b45309;
+  --ac2: #92400e;
+  --acb: rgba(180,83,9,0.08);
+  --gn: #059669;
+  --gnb: rgba(5,150,105,0.1);
+  --rd: #dc2626;
+  --rdb: rgba(220,38,38,0.08);
+  --bl: #2563eb;
+  --blb: rgba(37,99,235,0.08);
+  --pp: #7c3aed;
+  --ppb: rgba(124,58,237,0.08);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'DM Sans', -apple-system, sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--sans); background:var(--bg); color:var(--tx); min-height:100vh; -webkit-font-smoothing:antialiased; }
+::selection { background:var(--ac); color:#fff; }
+
+/* Header */
+.hdr { position:sticky; top:0; z-index:50; background:var(--bg); border-bottom:1px solid var(--bd); padding:12px 16px; }
+.hdr-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.hdr-title { font-family:var(--mono); font-size:14px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:var(--ac); }
+.hdr-ts { font-family:var(--mono); font-size:10px; color:var(--tx3); }
+
+/* Filters */
+.filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.flt { font-family:var(--mono); font-size:11px; font-weight:600; padding:6px 12px; border-radius:4px;
+  border:1px solid var(--bd); background:var(--sf); color:var(--tx2); cursor:pointer; appearance:none;
+  -webkit-appearance:none; }
+.flt:focus { outline:none; border-color:var(--ac); }
+.flt option { background:var(--sf); color:var(--tx); }
+
+/* Nav tabs */
+.nav { display:flex; gap:2px; border-bottom:1px solid var(--bd); padding:0 16px; background:var(--bg);
+  position:sticky; top:57px; z-index:40; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.nav::-webkit-scrollbar { display:none; }
+.nav-btn { font-family:var(--mono); font-size:11px; font-weight:700; padding:10px 14px; background:none;
+  border:none; color:var(--tx3); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;
+  transition:color 0.15s; }
+.nav-btn:hover { color:var(--tx2); }
+.nav-btn.a { color:var(--ac); border-bottom-color:var(--ac); }
+
+/* Content */
+.content { padding:12px 16px 80px; max-width:1200px; margin:0 auto; }
+
+/* Tables */
+.tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:16px; border-radius:6px;
+  border:1px solid var(--bd); background:var(--sf); }
+.tbl { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11px; white-space:nowrap; }
+.tbl th { padding:8px 10px; text-align:right; font-weight:700; color:var(--tx3); font-size:10px;
+  letter-spacing:0.06em; text-transform:uppercase; border-bottom:1px solid var(--bd); cursor:pointer;
+  user-select:none; position:sticky; top:0; background:var(--sf2); z-index:2; }
+.tbl th:first-child { text-align:left; position:sticky; left:0; z-index:3; min-width:130px; }
+.tbl th:hover { color:var(--ac); }
+.tbl th.sorted { color:var(--ac); }
+.tbl th.sorted::after { content:' ▾'; }
+.tbl th.sorted.asc::after { content:' ▴'; }
+.tbl td { padding:6px 10px; text-align:right; border-bottom:1px solid var(--bd); color:var(--tx2); }
+.tbl td:first-child { text-align:left; font-weight:600; color:var(--tx); position:sticky; left:0;
+  background:var(--sf); z-index:1; }
+.tbl tr:hover td { background:var(--sf2); }
+.tbl tr:hover td:first-child { background:var(--sf2); }
+.tbl .num { font-variant-numeric:tabular-nums; }
+.tbl .hi { color:var(--gn); font-weight:700; }
+.tbl .lo { color:var(--rd); }
+.tbl .avg { color:var(--ac); font-weight:700; }
+
+/* Scouting cards */
+.card { background:var(--sf); border:1px solid var(--bd); border-radius:6px; margin-bottom:8px; overflow:hidden; }
+.card-hdr { padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer;
+  user-select:none; -webkit-tap-highlight-color:transparent; }
+.card-hdr:hover { background:var(--sf2); }
+.jersey { width:36px; height:36px; border-radius:50%; background:var(--sf3); display:flex;
+  align-items:center; justify-content:center; font-family:var(--mono); font-weight:800; font-size:12px;
+  flex-shrink:0; color:var(--ac); }
+.card-info { flex:1; min-width:0; }
+.card-name { font-weight:700; font-size:13px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.card-sub { font-family:var(--mono); font-size:10px; color:var(--tx3); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
+.card-arrow { font-size:14px; color:var(--tx3); transition:transform 0.2s; }
+.card-arrow.open { transform:rotate(180deg); }
+.card-body { padding:0 14px 14px; border-top:1px solid var(--bd); display:none; }
+.card-body.open { display:block; }
+
+/* Tags */
+.tags { display:flex; flex-wrap:wrap; gap:3px; margin:8px 0; }
+.tag { display:inline-block; padding:2px 7px; border-radius:3px; font-family:var(--mono);
+  font-size:9px; font-weight:700; letter-spacing:0.04em; }
+
+/* Stat grid */
+.sg { display:grid; gap:6px; margin-bottom:10px; }
+.sg3 { grid-template-columns:repeat(3,1fr); }
+.sg4 { grid-template-columns:repeat(4,1fr); }
+.sb { background:var(--sf3); border-radius:4px; padding:6px; text-align:center; }
+.sv { font-family:var(--mono); font-size:13px; font-weight:700; }
+.sl { font-size:9px; color:var(--tx3); text-transform:uppercase; letter-spacing:0.05em; }
+
+/* Analysis boxes */
+.abox { border-radius:6px; padding:10px; margin-bottom:6px; border:1px solid; }
+.abox-t { font-family:var(--mono); font-size:9px; font-weight:700; margin-bottom:4px;
+  letter-spacing:0.06em; text-transform:uppercase; }
+.abox-b { font-size:12px; line-height:1.5; margin-bottom:3px; }
+.abox.amber { background:#fef3c7; border-color:#fcd34d; color:#78350f; }
+.abox.amber .abox-t { color:#92400e; }
+.abox.blue { background:#dbeafe; border-color:#93c5fd; color:#1e3a5f; }
+.abox.blue .abox-t { color:#1e40af; }
+.abox.green { background:#dcfce7; border-color:#86efac; color:#14532d; }
+.abox.green .abox-t { color:#166534; }
+.abox.red { background:#fee2e2; border-color:#fca5a5; color:#7f1d1d; }
+.abox.red .abox-t { color:#991b1b; }
+
+/* Hit sparkline */
+.spark { display:flex; gap:1px; align-items:flex-end; height:20px; margin-bottom:8px; }
+.spark-bar { width:7px; border-radius:1px; }
+
+/* Leaderboard */
+.lb-row { display:flex; align-items:center; gap:12px; padding:8px 12px; border-bottom:1px solid var(--bd); }
+.lb-rank { font-family:var(--mono); font-weight:800; font-size:14px; color:var(--tx3); width:28px;
+  text-align:center; flex-shrink:0; }
+.lb-rank.g { color:var(--ac); }
+.lb-name { flex:1; font-weight:600; font-size:13px; }
+.lb-team { font-family:var(--mono); font-size:10px; color:var(--tx3); }
+.lb-val { font-family:var(--mono); font-weight:800; font-size:16px; color:var(--ac); }
+
+/* Section headings */
+.sec { font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:0.12em;
+  text-transform:uppercase; color:var(--tx3); margin:20px 0 10px; }
+
+/* Our team badge */
+.our { display:inline-block; padding:1px 6px; border-radius:3px; font-family:var(--mono);
+  font-size:9px; font-weight:700; background:var(--acb); color:var(--ac); margin-left:6px; }
+
+/* Toggle (Team / Individual) */
+.toggle { display:inline-flex; gap:0; border:1px solid var(--bd); border-radius:4px; overflow:hidden;
+  margin-bottom:12px; font-family:var(--mono); font-size:10px; font-weight:700; }
+.toggle-btn { padding:6px 14px; background:transparent; border:none; color:var(--tx3); cursor:pointer;
+  letter-spacing:0.04em; }
+.toggle-btn.a { background:var(--ac); color:#fff; }
+
+/* Empty state */
+.empty { text-align:center; padding:40px; color:var(--tx3); font-size:13px; }
+
+@media (max-width:600px) {
+  .tbl { font-size:10px; }
+  .tbl th, .tbl td { padding:5px 6px; }
+  .sg4 { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-title">OBC 12u Stats</div>
+    <div class="hdr-ts">Updated Apr 18 2026 09:32 PM</div>
+  </div>
+  <div class="filters">
+    <select class="flt" id="flt-team" onchange="applyFilters()"></select>
+    <select class="flt" id="flt-season" onchange="applyFilters()"></select>
+  </div>
+</div>
+
+<div class="nav" id="nav">
+  <button class="nav-btn a" onclick="setTab('batting')">Batting</button>
+  <button class="nav-btn" onclick="setTab('pitching')">Pitching</button>
+  <button class="nav-btn" onclick="setTab('bat-log')">Game Log (B)</button>
+  <button class="nav-btn" onclick="setTab('pitch-log')">Game Log (P)</button>
+  <button class="nav-btn" onclick="setTab('scouting')">Scouting</button>
+  <button class="nav-btn" onclick="setTab('leaders')">Leaderboard</button>
+</div>
+
+<div class="content" id="ct"></div>
+
+<script>
+var D = {"ZVFmWQOPjSYN":{"n":"Portland Baseball Club 12u","s":"Portland Baseball Club 12u","season":"SP2026","is_our_team":false,"g":2,"b":[{"P":"Alex P","N":"51","G":2,"PA":8,"AB":5,"R":4,"H":3,"B1":3,"B2":0,"B3":0,"HR":0,"RBI":5,"BB":2,"SO":1,"HBP":1,"SF":0,"FC":0,"SB":3,"AVG":0.6,"OBP":0.75,"SLG":0.6,"OPS":1.35,"FPS":37.5,"HH":50.0,"HHn":2,"BIP":4},{"P":"Nate M","N":"1","G":2,"PA":7,"AB":4,"R":2,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":3,"SO":0,"HBP":0,"SF":0,"FC":0,"SB":2,"AVG":0.25,"OBP":0.571,"SLG":0.25,"OPS":0.821,"FPS":42.9,"HH":0.0,"HHn":0,"BIP":4},{"P":"Tristan W","N":"99","G":2,"PA":7,"AB":4,"R":6,"H":3,"B1":1,"B2":2,"B3":0,"HR":0,"RBI":4,"BB":3,"SO":0,"HBP":0,"SF":0,"FC":0,"SB":3,"AVG":0.75,"OBP":0.857,"SLG":1.25,"OPS":2.107,"FPS":57.1,"HH":75.0,"HHn":3,"BIP":4},{"P":"Emmett D","N":"7","G":2,"PA":7,"AB":7,"R":4,"H":4,"B1":3,"B2":1,"B3":0,"HR":0,"RBI":4,"BB":0,"SO":0,"HBP":0,"SF":0,"FC":0,"SB":2,"AVG":0.571,"OBP":0.571,"SLG":0.714,"OPS":1.286,"FPS":42.9,"HH":28.6,"HHn":2,"BIP":7},{"P":"Charlie J","N":"10","G":2,"PA":7,"AB":3,"R":5,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":1,"SO":1,"HBP":3,"SF":0,"FC":0,"SB":2,"AVG":0.667,"OBP":0.857,"SLG":0.667,"OPS":1.524,"FPS":57.1,"HH":0.0,"HHn":0,"BIP":2},{"P":"Mo O","N":"00","G":2,"PA":7,"AB":5,"R":3,"H":3,"B1":1,"B2":2,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":1,"SF":0,"FC":0,"SB":2,"AVG":0.6,"OBP":0.714,"SLG":1.0,"OPS":1.714,"FPS":28.6,"HH":50.0,"HHn":2,"BIP":4},{"P":"Cooper H","N":"15","G":2,"PA":7,"AB":6,"R":1,"H":3,"B1":3,"B2":0,"B3":0,"HR":0,"RBI":5,"BB":0,"SO":0,"HBP":1,"SF":0,"FC":0,"SB":0,"AVG":0.5,"OBP":0.571,"SLG":0.5,"OPS":1.071,"FPS":28.6,"HH":16.7,"HHn":1,"BIP":6},{"P":"Liam L","N":"21","G":2,"PA":7,"AB":5,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":4,"BB":2,"SO":2,"HBP":0,"SF":0,"FC":0,"SB":1,"AVG":0.2,"OBP":0.429,"SLG":0.2,"OPS":0.629,"FPS":28.6,"HH":0.0,"HHn":0,"BIP":3},{"P":"Jakob A","N":"24","G":2,"PA":7,"AB":4,"R":3,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":3,"SO":1,"HBP":0,"SF":0,"FC":1,"SB":2,"AVG":0.25,"OBP":0.571,"SLG":0.25,"OPS":0.821,"FPS":42.9,"HH":0.0,"HHn":0,"BIP":3},{"P":"Ryder C","N":"11","G":2,"PA":7,"AB":3,"R":3,"H":3,"B1":3,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":2,"SO":0,"HBP":2,"SF":0,"FC":0,"SB":2,"AVG":1.0,"OBP":1.0,"SLG":1.0,"OPS":2.0,"FPS":71.4,"HH":66.7,"HHn":2,"BIP":3},{"P":"Elias C","N":"2","G":2,"PA":7,"AB":5,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":2,"SO":0,"HBP":0,"SF":0,"FC":1,"SB":1,"AVG":0.4,"OBP":0.571,"SLG":0.4,"OPS":0.971,"FPS":57.1,"HH":0.0,"HHn":0,"BIP":5}],"p":[{"P":"Ryder C","N":"11","G":1,"IP":"3.0","BF":15,"AB":11,"H":3,"R":2,"ER":2,"BB":4,"SO":4,"HBP":0,"HR":0,"ERA":4.0,"WHIP":2.33,"BAA":0.273,"Kp":26.7,"Pit":59,"PBF":3.9,"FPS":46.7,"Spct":45.8,"GB":3,"AO":0,"LD":2,"GBAO":"3","HHp":28.6},{"P":"Mo O","N":"00","G":1,"IP":"2.1","BF":8,"AB":7,"H":1,"R":0,"ER":0,"BB":1,"SO":0,"HBP":0,"HR":0,"ERA":0.0,"WHIP":0.86,"BAA":0.143,"Kp":0.0,"Pit":21,"PBF":2.6,"FPS":75.0,"Spct":61.9,"GB":1,"AO":4,"LD":1,"GBAO":"0.25","HHp":0.0},{"P":"Liam L","N":"21","G":1,"IP":"1.2","BF":8,"AB":8,"H":3,"R":5,"ER":5,"BB":0,"SO":0,"HBP":0,"HR":0,"ERA":18.0,"WHIP":1.8,"BAA":0.375,"Kp":0.0,"Pit":28,"PBF":3.5,"FPS":37.5,"Spct":50.0,"GB":1,"AO":0,"LD":0,"GBAO":"1","HHp":14.3},{"P":"Emmett D","N":"7","G":1,"IP":"0.2","BF":3,"AB":3,"H":1,"R":1,"ER":1,"BB":0,"SO":2,"HBP":0,"HR":0,"ERA":9.0,"WHIP":1.5,"BAA":0.333,"Kp":66.7,"Pit":17,"PBF":5.7,"FPS":66.7,"Spct":58.8,"GB":0,"AO":0,"LD":0,"GBAO":"","HHp":100.0},{"P":"Elias C","N":"2","G":1,"IP":"0.2","BF":8,"AB":4,"H":1,"R":4,"ER":4,"BB":4,"SO":2,"HBP":0,"HR":0,"ERA":36.0,"WHIP":7.5,"BAA":0.25,"Kp":25.0,"Pit":38,"PBF":4.8,"FPS":37.5,"Spct":34.2,"GB":0,"AO":0,"LD":0,"GBAO":"","HHp":50.0},{"P":"Charlie J","N":"10","G":1,"IP":"0.2","BF":2,"AB":2,"H":0,"R":2,"ER":2,"BB":0,"SO":2,"HBP":0,"HR":0,"ERA":18.0,"WHIP":0.0,"BAA":0.0,"Kp":100.0,"Pit":10,"PBF":5.0,"FPS":0.0,"Spct":60.0,"GB":0,"AO":0,"LD":0,"GBAO":"","HHp":0},{"P":"Jakob A","N":"24","G":1,"IP":"0.0","BF":6,"AB":0,"H":0,"R":5,"ER":5,"BB":6,"SO":0,"HBP":0,"HR":0,"ERA":999,"WHIP":999,"BAA":0,"Kp":0.0,"Pit":32,"PBF":5.3,"FPS":50.0,"Spct":25.0,"GB":0,"AO":0,"LD":0,"GBAO":"","HHp":0}],"gl":{"Nate M":[0,1],"Alex P":[1,2],"Tristan W":[2,1],"Emmett D":[2,2],"Charlie J":[1,1],"Mo O":[0,3],"Cooper H":[1,2],"Liam L":[1,0],"Jakob A":[1,0],"Ryder C":[1,2],"Elias C":[1,1]},"blg":[{"P":"Nate M","N":"1","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":4,"AB":1,"R":2,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":3,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.0},{"P":"Nate M","N":"1","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Alex P","N":"51","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":4,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":1,"SO":0,"HBP":1,"SF":0,"SB":1,"AVG":0.5},{"P":"Alex P","N":"51","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":3,"R":3,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":2,"AVG":0.667},{"P":"Tristan W","N":"99","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":2,"R":3,"H":2,"B1":0,"B2":2,"B3":0,"HR":0,"RBI":2,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":1.0},{"P":"Tristan W","N":"99","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":2,"R":3,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":2,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.5},{"P":"Emmett D","N":"7","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":3,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.667},{"P":"Emmett D","N":"7","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":4,"R":2,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.5},{"P":"Charlie J","N":"10","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":1,"SF":0,"SB":0,"AVG":0.5},{"P":"Charlie J","N":"10","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":1,"R":4,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":1,"SO":0,"HBP":2,"SF":0,"SB":2,"AVG":1.0},{"P":"Mo O","N":"00","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Mo O","N":"00","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":3,"R":3,"H":3,"B1":1,"B2":2,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":1,"SF":0,"SB":2,"AVG":1.0},{"P":"Cooper H","N":"15","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Cooper H","N":"15","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":3,"R":1,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":0,"SO":0,"HBP":1,"SF":0,"SB":0,"AVG":0.667},{"P":"Liam L","N":"21","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Liam L","N":"21","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":2,"SO":1,"HBP":0,"SF":0,"SB":1,"AVG":0.0},{"P":"Jakob A","N":"24","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":2,"R":2,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"Jakob A","N":"24","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":2,"SO":1,"HBP":0,"SF":0,"SB":2,"AVG":0.0},{"P":"Ryder C","N":"11","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":1,"R":2,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":2,"SF":0,"SB":0,"AVG":1.0},{"P":"Ryder C","N":"11","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":2,"R":1,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":2,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":1.0},{"P":"Elias C","N":"2","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Elias C","N":"2","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","PA":4,"AB":2,"R":2,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":2,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.5}],"plg":[{"P":"Ryder C","N":"11","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","IP":"3.0","BF":15,"H":3,"R":2,"ER":2,"BB":4,"SO":4,"HBP":0,"HR":0,"Pit":59,"Str":27},{"P":"Emmett D","N":"7","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","IP":"0.2","BF":3,"H":1,"R":1,"ER":1,"BB":0,"SO":2,"HBP":0,"HR":0,"Pit":17,"Str":10},{"P":"Elias C","N":"2","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","IP":"0.2","BF":8,"H":1,"R":4,"ER":4,"BB":4,"SO":2,"HBP":0,"HR":0,"Pit":38,"Str":13},{"P":"Charlie J","N":"10","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 13-9","IP":"0.2","BF":2,"H":0,"R":2,"ER":2,"BB":0,"SO":2,"HBP":0,"HR":0,"Pit":10,"Str":6},{"P":"Mo O","N":"00","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","IP":"2.1","BF":8,"H":1,"R":0,"ER":0,"BB":1,"SO":0,"HBP":0,"HR":0,"Pit":21,"Str":13},{"P":"Jakob A","N":"24","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","IP":"0.0","BF":6,"H":0,"R":5,"ER":5,"BB":6,"SO":0,"HBP":0,"HR":0,"Pit":32,"Str":8},{"P":"Liam L","N":"21","Date":"2026-04-18","Opp":"West Linn 12U - Federal","HA":"AWAY","Res":"W 21-10","IP":"1.2","BF":8,"H":3,"R":5,"ER":5,"BB":0,"SO":0,"HBP":0,"HR":0,"Pit":28,"Str":14}]},"OWn1tc3dT2LV":{"n":"OC 12u Junior American","s":"OC 12u Junior American","season":"SP2026","is_our_team":false,"g":5,"b":[{"P":"Miles B","N":"23","G":5,"PA":18,"AB":10,"R":13,"H":5,"B1":3,"B2":1,"B3":1,"HR":0,"RBI":3,"BB":7,"SO":3,"HBP":1,"SF":0,"FC":0,"SB":11,"AVG":0.5,"OBP":0.722,"SLG":0.8,"OPS":1.522,"FPS":50.0,"HH":28.6,"HHn":2,"BIP":7},{"P":"Jon M","N":"10","G":5,"PA":18,"AB":10,"R":6,"H":3,"B1":1,"B2":2,"B3":0,"HR":0,"RBI":12,"BB":8,"SO":1,"HBP":0,"SF":0,"FC":0,"SB":4,"AVG":0.3,"OBP":0.611,"SLG":0.5,"OPS":1.111,"FPS":38.9,"HH":22.2,"HHn":2,"BIP":9},{"P":"Zane M","N":"18","G":5,"PA":18,"AB":15,"R":8,"H":10,"B1":7,"B2":2,"B3":0,"HR":1,"RBI":12,"BB":3,"SO":2,"HBP":0,"SF":0,"FC":0,"SB":7,"AVG":0.667,"OBP":0.722,"SLG":1.0,"OPS":1.722,"FPS":50.0,"HH":46.2,"HHn":6,"BIP":13},{"P":"Tyson V","N":"16","G":5,"PA":17,"AB":14,"R":3,"H":4,"B1":4,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":3,"SO":2,"HBP":0,"SF":0,"FC":0,"SB":3,"AVG":0.286,"OBP":0.412,"SLG":0.286,"OPS":0.697,"FPS":52.9,"HH":16.7,"HHn":2,"BIP":12},{"P":"Kellen S","N":"24","G":5,"PA":15,"AB":11,"R":6,"H":4,"B1":4,"B2":0,"B3":0,"HR":0,"RBI":6,"BB":4,"SO":2,"HBP":0,"SF":0,"FC":0,"SB":6,"AVG":0.364,"OBP":0.533,"SLG":0.364,"OPS":0.897,"FPS":46.7,"HH":11.1,"HHn":1,"BIP":9},{"P":"Jonah B","N":"17","G":5,"PA":15,"AB":14,"R":4,"H":6,"B1":6,"B2":0,"B3":0,"HR":0,"RBI":6,"BB":0,"SO":2,"HBP":1,"SF":0,"FC":0,"SB":8,"AVG":0.429,"OBP":0.467,"SLG":0.429,"OPS":0.895,"FPS":60.0,"HH":25.0,"HHn":3,"BIP":12},{"P":"Connor T","N":"0","G":5,"PA":15,"AB":8,"R":5,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":7,"SO":4,"HBP":0,"SF":0,"FC":0,"SB":6,"AVG":0.25,"OBP":0.6,"SLG":0.375,"OPS":0.975,"FPS":53.3,"HH":0.0,"HHn":0,"BIP":4},{"P":"Grayson D","N":"11","G":5,"PA":15,"AB":12,"R":4,"H":7,"B1":6,"B2":0,"B3":1,"HR":0,"RBI":13,"BB":3,"SO":2,"HBP":0,"SF":0,"FC":0,"SB":5,"AVG":0.583,"OBP":0.667,"SLG":0.75,"OPS":1.417,"FPS":46.7,"HH":60.0,"HHn":6,"BIP":10},{"P":"Miles B","N":"3","G":5,"PA":14,"AB":10,"R":6,"H":3,"B1":2,"B2":1,"B3":0,"HR":0,"RBI":3,"BB":4,"SO":3,"HBP":0,"SF":0,"FC":0,"SB":7,"AVG":0.3,"OBP":0.5,"SLG":0.4,"OPS":0.9,"FPS":50.0,"HH":16.7,"HHn":1,"BIP":6},{"P":"Axel C","N":"8","G":5,"PA":13,"AB":11,"R":6,"H":7,"B1":7,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":2,"HBP":1,"SF":0,"FC":0,"SB":2,"AVG":0.636,"OBP":0.692,"SLG":0.636,"OPS":1.329,"FPS":53.8,"HH":33.3,"HHn":3,"BIP":9}],"p":[{"P":"Zane M","N":"18","G":3,"IP":"5.2","BF":33,"AB":26,"H":9,"R":10,"ER":10,"BB":7,"SO":8,"HBP":0,"HR":0,"ERA":10.59,"WHIP":2.82,"BAA":0.346,"Kp":24.2,"Pit":124,"PBF":3.8,"FPS":54.5,"Spct":54.0,"GB":3,"AO":3,"LD":2,"GBAO":"1.00","HHp":5.9},{"P":"Kellen S","N":"24","G":3,"IP":"4.2","BF":18,"AB":16,"H":3,"R":2,"ER":2,"BB":1,"SO":9,"HBP":1,"HR":0,"ERA":2.57,"WHIP":0.86,"BAA":0.188,"Kp":50.0,"Pit":81,"PBF":4.5,"FPS":61.1,"Spct":59.3,"GB":2,"AO":1,"LD":1,"GBAO":"2.00","HHp":14.3},{"P":"Grayson D","N":"11","G":3,"IP":"4.2","BF":21,"AB":15,"H":2,"R":4,"ER":4,"BB":5,"SO":9,"HBP":1,"HR":0,"ERA":5.14,"WHIP":1.5,"BAA":0.133,"Kp":42.9,"Pit":88,"PBF":4.2,"FPS":57.1,"Spct":52.3,"GB":2,"AO":1,"LD":0,"GBAO":"2.00","HHp":40.0},{"P":"Connor T","N":"0","G":2,"IP":"2.2","BF":15,"AB":13,"H":5,"R":4,"ER":4,"BB":2,"SO":4,"HBP":0,"HR":0,"ERA":9.0,"WHIP":2.62,"BAA":0.385,"Kp":26.7,"Pit":56,"PBF":3.7,"FPS":66.7,"Spct":62.5,"GB":3,"AO":1,"LD":0,"GBAO":"3.00","HHp":22.2},{"P":"Jon M","N":"10","G":3,"IP":"2.1","BF":8,"AB":7,"H":1,"R":2,"ER":2,"BB":1,"SO":3,"HBP":0,"HR":0,"ERA":5.14,"WHIP":0.86,"BAA":0.143,"Kp":37.5,"Pit":33,"PBF":4.1,"FPS":37.5,"Spct":60.6,"GB":2,"AO":1,"LD":0,"GBAO":"2.00","HHp":0.0},{"P":"Miles B","N":"23","G":1,"IP":"1.1","BF":8,"AB":4,"H":0,"R":2,"ER":2,"BB":3,"SO":2,"HBP":1,"HR":0,"ERA":9.0,"WHIP":2.25,"BAA":0.0,"Kp":25.0,"Pit":36,"PBF":4.5,"FPS":37.5,"Spct":44.4,"GB":0,"AO":1,"LD":1,"GBAO":"0.00","HHp":0.0},{"P":"Axel C","N":"8","G":1,"IP":"1.0","BF":8,"AB":4,"H":1,"R":2,"ER":2,"BB":3,"SO":1,"HBP":1,"HR":0,"ERA":12.0,"WHIP":4.0,"BAA":0.25,"Kp":12.5,"Pit":31,"PBF":3.9,"FPS":37.5,"Spct":29.0,"GB":1,"AO":1,"LD":0,"GBAO":"1.00","HHp":0.0},{"P":"Tyson V","N":"16","G":1,"IP":"0.2","BF":9,"AB":2,"H":0,"R":4,"ER":4,"BB":6,"SO":1,"HBP":1,"HR":0,"ERA":36.0,"WHIP":9.0,"BAA":0.0,"Kp":11.1,"Pit":42,"PBF":4.7,"FPS":22.2,"Spct":38.1,"GB":0,"AO":1,"LD":0,"GBAO":"0.00","HHp":0.0}],"gl":{"Miles B":[1,0,1,0,1],"Jon M":[1,0,1,0,1],"Kellen S":[0,1,1,0,2],"Zane M":[1,3,2,2,2],"Tyson V":[1,0,2,1,0],"Jonah B":[1,1,0,2,2],"Axel C":[2,2,1,0,2],"Connor T":[0,0,2,0,0],"Grayson D":[3,1,1,2,0]},"blg":[{"P":"Miles B","N":"23","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":2,"R":2,"H":1,"B1":0,"B2":0,"B3":1,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.5},{"P":"Miles B","N":"23","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":4,"AB":3,"R":2,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Miles B","N":"23","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":4,"AB":2,"R":3,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":2,"SO":1,"HBP":0,"SF":0,"SB":3,"AVG":0.5},{"P":"Miles B","N":"23","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":2,"R":2,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":2,"AVG":0.5},{"P":"Miles B","N":"23","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":4,"AB":1,"R":4,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":2,"SO":0,"HBP":1,"SF":0,"SB":4,"AVG":1.0},{"P":"Jon M","N":"10","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":1,"R":1,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":2,"BB":2,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":1.0},{"P":"Jon M","N":"10","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":4,"AB":1,"R":2,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":4,"BB":3,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.0},{"P":"Jon M","N":"10","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":4,"AB":3,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Jon M","N":"10","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":3,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Jon M","N":"10","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":4,"AB":2,"R":2,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":3,"BB":2,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.5},{"P":"Kellen S","N":"24","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Kellen S","N":"24","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Kellen S","N":"24","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":3,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.5},{"P":"Kellen S","N":"24","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":2,"AVG":0.0},{"P":"Kellen S","N":"24","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":3,"AB":2,"R":3,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":3,"AVG":1.0},{"P":"Zane M","N":"18","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":3,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Zane M","N":"18","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":4,"AB":4,"R":0,"H":3,"B1":2,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.75},{"P":"Zane M","N":"18","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":4,"AB":3,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.667},{"P":"Zane M","N":"18","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":3,"R":2,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":3,"AVG":0.667},{"P":"Zane M","N":"18","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":4,"AB":2,"R":3,"H":2,"B1":1,"B2":0,"B3":0,"HR":1,"RBI":6,"BB":2,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":1.0},{"P":"Tyson V","N":"16","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"Tyson V","N":"16","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":3,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Tyson V","N":"16","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":4,"AB":4,"R":0,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":1,"AVG":0.5},{"P":"Tyson V","N":"16","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":1,"AVG":0.333},{"P":"Tyson V","N":"16","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":4,"AB":3,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.0},{"P":"Jonah B","N":"17","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":3,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":1,"AVG":0.333},{"P":"Jonah B","N":"17","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":1,"AVG":0.333},{"P":"Jonah B","N":"17","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":3,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":1,"SF":0,"SB":0,"AVG":0.0},{"P":"Jonah B","N":"17","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":3,"R":1,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.667},{"P":"Jonah B","N":"17","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":3,"AB":3,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":4,"AVG":0.667},{"P":"Axel C","N":"8","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":3,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.667},{"P":"Axel C","N":"8","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":3,"AB":3,"R":1,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.667},{"P":"Axel C","N":"8","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":1,"AB":1,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":1.0},{"P":"Axel C","N":"8","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Axel C","N":"8","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":3,"AB":2,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":1,"SF":0,"SB":2,"AVG":1.0},{"P":"Connor T","N":"0","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":1,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":2,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Connor T","N":"0","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":3,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":2,"AVG":0.0},{"P":"Connor T","N":"0","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":3,"AB":3,"R":1,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":2,"AVG":0.667},{"P":"Connor T","N":"0","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":1,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":2,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Connor T","N":"0","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":3,"AB":1,"R":2,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":2,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.0},{"P":"Grayson D","N":"11","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":3,"AB":3,"R":1,"H":3,"B1":3,"B2":0,"B3":0,"HR":0,"RBI":4,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":1.0},{"P":"Grayson D","N":"11","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":3,"AB":3,"R":1,"H":1,"B1":0,"B2":0,"B3":1,"HR":0,"RBI":2,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Grayson D","N":"11","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Grayson D","N":"11","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":2,"R":1,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":4,"AVG":1.0},{"P":"Grayson D","N":"11","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":3,"AB":1,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":3,"BB":2,"SO":1,"HBP":0,"SF":0,"SB":1,"AVG":0.0},{"P":"Miles B","N":"3","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","PA":2,"AB":2,"R":1,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"Miles B","N":"3","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","PA":3,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":2,"HBP":0,"SF":0,"SB":1,"AVG":0.0},{"P":"Miles B","N":"3","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","PA":3,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"Miles B","N":"3","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","PA":3,"AB":2,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":2,"AVG":0.0},{"P":"Miles B","N":"3","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","PA":3,"AB":2,"R":2,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":1,"HBP":0,"SF":0,"SB":4,"AVG":0.5}],"plg":[{"P":"Kellen S","N":"24","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","IP":"2.0","BF":7,"H":1,"R":0,"ER":0,"BB":0,"SO":5,"HBP":1,"HR":0,"Pit":33,"Str":20},{"P":"Kellen S","N":"24","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","IP":"1.0","BF":5,"H":1,"R":2,"ER":2,"BB":1,"SO":3,"HBP":0,"HR":0,"Pit":22,"Str":12},{"P":"Kellen S","N":"24","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","IP":"1.2","BF":6,"H":1,"R":0,"ER":0,"BB":0,"SO":1,"HBP":0,"HR":0,"Pit":26,"Str":16},{"P":"Connor T","N":"0","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","IP":"1.2","BF":10,"H":4,"R":3,"ER":3,"BB":1,"SO":3,"HBP":0,"HR":0,"Pit":34,"Str":24},{"P":"Connor T","N":"0","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","IP":"1.0","BF":5,"H":1,"R":1,"ER":1,"BB":1,"SO":1,"HBP":0,"HR":0,"Pit":22,"Str":11},{"P":"Grayson D","N":"11","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","IP":"1.1","BF":7,"H":0,"R":2,"ER":2,"BB":2,"SO":3,"HBP":1,"HR":0,"Pit":29,"Str":16},{"P":"Grayson D","N":"11","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","IP":"1.0","BF":5,"H":1,"R":2,"ER":2,"BB":1,"SO":2,"HBP":0,"HR":0,"Pit":21,"Str":11},{"P":"Grayson D","N":"11","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","IP":"2.1","BF":9,"H":1,"R":0,"ER":0,"BB":2,"SO":4,"HBP":0,"HR":0,"Pit":38,"Str":19},{"P":"Jon M","N":"10","Date":"2026-04-08","Opp":"Junior American Horgos 2026","HA":"HOME","Res":"W 13-6","IP":"1.0","BF":4,"H":0,"R":0,"ER":0,"BB":1,"SO":2,"HBP":0,"HR":0,"Pit":18,"Str":10},{"P":"Jon M","N":"10","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","IP":"0.2","BF":2,"H":0,"R":2,"ER":2,"BB":0,"SO":0,"HBP":0,"HR":0,"Pit":10,"Str":6},{"P":"Jon M","N":"10","Date":"2026-04-18","Opp":"Horizon Youth Baseball 12U","HA":"AWAY","Res":"W 9-3","IP":"0.2","BF":2,"H":1,"R":0,"ER":0,"BB":0,"SO":1,"HBP":0,"HR":0,"Pit":5,"Str":4},{"P":"Zane M","N":"18","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","IP":"2.1","BF":9,"H":0,"R":2,"ER":2,"BB":2,"SO":5,"HBP":0,"HR":0,"Pit":44,"Str":24},{"P":"Zane M","N":"18","Date":"2026-04-17","Opp":"Sandy Golden Spikes 12u - Gold","HA":"AWAY","Res":"L 9-10","IP":"2.0","BF":14,"H":5,"R":6,"ER":6,"BB":2,"SO":2,"HBP":0,"HR":0,"Pit":48,"Str":29},{"P":"Zane M","N":"18","Date":"2026-04-18","Opp":"Smelters - Oswego Baseball Club 12U 12U","HA":"AWAY","Res":"W 22-2","IP":"1.1","BF":10,"H":4,"R":2,"ER":2,"BB":3,"SO":1,"HBP":0,"HR":0,"Pit":32,"Str":14},{"P":"Axel C","N":"8","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","IP":"1.0","BF":8,"H":1,"R":2,"ER":2,"BB":3,"SO":1,"HBP":1,"HR":0,"Pit":31,"Str":9},{"P":"Miles B","N":"23","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","IP":"1.1","BF":8,"H":0,"R":2,"ER":2,"BB":3,"SO":2,"HBP":1,"HR":0,"Pit":36,"Str":16},{"P":"Tyson V","N":"16","Date":"2026-04-10","Opp":"Banana Slugs - Schneider - Junior American","HA":"AWAY","Res":"L 10-12","IP":"0.2","BF":9,"H":0,"R":4,"ER":4,"BB":6,"SO":1,"HBP":1,"HR":0,"Pit":42,"Str":16}]},"EoJgMN3FJzWs":{"n":"OBC 12u","s":"OBC 12u","season":"SP2026","is_our_team":true,"g":3,"b":[{"P":"Sawyer Phillips","N":"9","G":3,"PA":9,"AB":7,"R":3,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":3,"BB":0,"SO":1,"HBP":1,"SF":1,"FC":1,"SB":0,"AVG":0.286,"OBP":0.333,"SLG":0.429,"OPS":0.762,"FPS":44.4,"HH":28.6,"HHn":2,"BIP":7},{"P":"Luke Gerry","N":"15","G":3,"PA":9,"AB":8,"R":4,"H":5,"B1":3,"B2":2,"B3":0,"HR":0,"RBI":3,"BB":0,"SO":0,"HBP":1,"SF":0,"FC":1,"SB":1,"AVG":0.625,"OBP":0.667,"SLG":0.875,"OPS":1.542,"FPS":44.4,"HH":62.5,"HHn":5,"BIP":8},{"P":"Jack Speer","N":"20","G":3,"PA":9,"AB":7,"R":0,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":3,"BB":1,"SO":0,"HBP":0,"SF":1,"FC":2,"SB":2,"AVG":0.286,"OBP":0.333,"SLG":0.429,"OPS":0.762,"FPS":77.8,"HH":25.0,"HHn":2,"BIP":8},{"P":"Lochlan Feero","N":"19","G":3,"PA":8,"AB":7,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":1,"SF":0,"FC":0,"SB":1,"AVG":0.143,"OBP":0.25,"SLG":0.143,"OPS":0.393,"FPS":50.0,"HH":0.0,"HHn":0,"BIP":6},{"P":"Wyatt Parker-Nelson","N":"3","G":3,"PA":7,"AB":6,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":6,"HBP":0,"SF":0,"FC":0,"SB":1,"AVG":0.0,"OBP":0.143,"SLG":0.0,"OPS":0.143,"FPS":14.3,"HH":0,"HHn":0,"BIP":0},{"P":"Liam Harp","N":"14","G":3,"PA":7,"AB":5,"R":3,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":2,"SO":3,"HBP":0,"SF":0,"FC":0,"SB":0,"AVG":0.2,"OBP":0.429,"SLG":0.4,"OPS":0.829,"FPS":85.7,"HH":50.0,"HHn":1,"BIP":2},{"P":"Ethan Krametbauer","N":"21","G":3,"PA":7,"AB":5,"R":3,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":2,"HBP":1,"SF":0,"FC":0,"SB":2,"AVG":0.4,"OBP":0.571,"SLG":0.4,"OPS":0.971,"FPS":42.9,"HH":33.3,"HHn":1,"BIP":3},{"P":"Brody Hill","N":"18","G":3,"PA":6,"AB":6,"R":3,"H":4,"B1":4,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":2,"HBP":0,"SF":0,"FC":0,"SB":1,"AVG":0.667,"OBP":0.667,"SLG":0.667,"OPS":1.333,"FPS":50.0,"HH":50.0,"HHn":2,"BIP":4},{"P":"Chase Cook","N":"11","G":3,"PA":6,"AB":4,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":2,"SO":2,"HBP":0,"SF":0,"FC":0,"SB":1,"AVG":0.25,"OBP":0.5,"SLG":0.25,"OPS":0.75,"FPS":50.0,"HH":50.0,"HHn":1,"BIP":2},{"P":"Hyuga Manzella","N":"23","G":2,"PA":6,"AB":5,"R":2,"H":3,"B1":0,"B2":3,"B3":0,"HR":0,"RBI":5,"BB":1,"SO":0,"HBP":0,"SF":0,"FC":0,"SB":1,"AVG":0.6,"OBP":0.667,"SLG":1.2,"OPS":1.867,"FPS":50.0,"HH":60.0,"HHn":3,"BIP":5},{"P":"William Spurlock","N":"35","G":2,"PA":4,"AB":3,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":1,"SF":0,"FC":0,"SB":0,"AVG":0.0,"OBP":0.25,"SLG":0.0,"OPS":0.25,"FPS":75.0,"HH":0.0,"HHn":0,"BIP":2}],"p":[{"P":"Luke Gerry","N":"15","G":2,"IP":"6.2","BF":29,"AB":27,"H":7,"R":5,"ER":5,"BB":2,"SO":12,"HBP":0,"HR":0,"ERA":4.5,"WHIP":1.35,"BAA":0.259,"Kp":41.4,"Pit":112,"PBF":3.9,"FPS":75.9,"Spct":67.0,"GB":5,"AO":3,"LD":0,"GBAO":"1.67","HHp":26.7},{"P":"Sawyer Phillips","N":"9","G":2,"IP":"2.1","BF":20,"AB":16,"H":9,"R":9,"ER":9,"BB":4,"SO":7,"HBP":0,"HR":2,"ERA":23.14,"WHIP":5.57,"BAA":0.562,"Kp":35.0,"Pit":81,"PBF":4.0,"FPS":50.0,"Spct":58.0,"GB":0,"AO":0,"LD":0,"GBAO":"","HHp":55.6},{"P":"Jack Speer","N":"20","G":2,"IP":"1.2","BF":10,"AB":5,"H":3,"R":4,"ER":4,"BB":3,"SO":2,"HBP":0,"HR":0,"ERA":14.4,"WHIP":3.6,"BAA":0.6,"Kp":20.0,"Pit":52,"PBF":5.2,"FPS":60.0,"Spct":55.8,"GB":0,"AO":2,"LD":0,"GBAO":"0.00","HHp":40.0},{"P":"Wyatt Parker-Nelson","N":"3","G":2,"IP":"1.0","BF":13,"AB":6,"H":3,"R":7,"ER":7,"BB":4,"SO":2,"HBP":3,"HR":0,"ERA":42.0,"WHIP":7.0,"BAA":0.5,"Kp":15.4,"Pit":53,"PBF":4.1,"FPS":30.8,"Spct":37.7,"GB":1,"AO":0,"LD":0,"GBAO":"1","HHp":50.0},{"P":"Lochlan Feero","N":"19","G":1,"IP":"0.2","BF":6,"AB":3,"H":1,"R":6,"ER":6,"BB":3,"SO":1,"HBP":0,"HR":1,"ERA":54.0,"WHIP":6.0,"BAA":0.333,"Kp":16.7,"Pit":27,"PBF":4.5,"FPS":33.3,"Spct":29.6,"GB":1,"AO":0,"LD":0,"GBAO":"1","HHp":0.0},{"P":"William Spurlock","N":"35","G":1,"IP":"0.1","BF":6,"AB":4,"H":3,"R":3,"ER":3,"BB":2,"SO":0,"HBP":0,"HR":0,"ERA":54.0,"WHIP":15.0,"BAA":0.75,"Kp":0.0,"Pit":26,"PBF":4.3,"FPS":50.0,"Spct":46.2,"GB":1,"AO":0,"LD":0,"GBAO":"1","HHp":50.0},{"P":"Ethan Krametbauer","N":"21","G":1,"IP":"0.1","BF":6,"AB":4,"H":2,"R":4,"ER":4,"BB":2,"SO":0,"HBP":0,"HR":0,"ERA":72.0,"WHIP":12.0,"BAA":0.5,"Kp":0.0,"Pit":22,"PBF":3.7,"FPS":33.3,"Spct":36.4,"GB":1,"AO":0,"LD":0,"GBAO":"1","HHp":25.0},{"P":"Brody Hill","N":"18","G":1,"IP":"0.1","BF":3,"AB":2,"H":1,"R":2,"ER":2,"BB":1,"SO":0,"HBP":0,"HR":0,"ERA":36.0,"WHIP":6.0,"BAA":0.5,"Kp":0.0,"Pit":10,"PBF":3.3,"FPS":33.3,"Spct":40.0,"GB":1,"AO":0,"LD":0,"GBAO":"1","HHp":0.0},{"P":"Liam Harp","N":"14","G":1,"IP":"0.0","BF":4,"AB":1,"H":1,"R":3,"ER":3,"BB":3,"SO":0,"HBP":0,"HR":0,"ERA":999,"WHIP":999,"BAA":1.0,"Kp":0.0,"Pit":15,"PBF":3.8,"FPS":25.0,"Spct":13.3,"GB":0,"AO":0,"LD":0,"GBAO":"","HHp":100.0}],"gl":{"Sawyer Phillips":[1,1,0],"Lochlan Feero":[0,1,0],"Luke Gerry":[2,2,1],"Jack Speer":[0,0,2],"Wyatt Parker-Nelson":[0,0,0],"Brody Hill":[1,2,1],"Liam Harp":[0,1,0],"Ethan Krametbauer":[0,2,0],"Chase Cook":[0,1,0],"Hyuga Manzella":[2,1],"William Spurlock":[0,0]},"blg":[{"P":"Sawyer Phillips","N":"9","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":3,"AB":3,"R":2,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.333},{"P":"Sawyer Phillips","N":"9","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":4,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":2,"BB":0,"SO":0,"HBP":1,"SF":1,"SB":0,"AVG":0.5},{"P":"Sawyer Phillips","N":"9","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":2,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Lochlan Feero","N":"19","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":3,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":1,"SF":0,"SB":0,"AVG":0.0},{"P":"Lochlan Feero","N":"19","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":3,"AB":3,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.333},{"P":"Lochlan Feero","N":"19","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":2,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Luke Gerry","N":"15","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":3,"AB":3,"R":0,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":2,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.667},{"P":"Luke Gerry","N":"15","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":4,"AB":3,"R":3,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":1,"SF":0,"SB":1,"AVG":0.667},{"P":"Luke Gerry","N":"15","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":2,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"Jack Speer","N":"20","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":3,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.0},{"P":"Jack Speer","N":"20","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":4,"AB":3,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":0,"HBP":0,"SF":1,"SB":0,"AVG":0.0},{"P":"Jack Speer","N":"20","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":2,"AB":2,"R":0,"H":2,"B1":1,"B2":1,"B3":0,"HR":0,"RBI":2,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":1.0},{"P":"Wyatt Parker-Nelson","N":"3","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":3,"AB":3,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":3,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Wyatt Parker-Nelson","N":"3","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":3,"AB":3,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":3,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Wyatt Parker-Nelson","N":"3","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":1,"AB":0,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0},{"P":"Brody Hill","N":"18","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":2,"AB":2,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"Brody Hill","N":"18","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":3,"AB":3,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":1,"AVG":0.667},{"P":"Brody Hill","N":"18","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":1,"AB":1,"R":0,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":1.0},{"P":"Liam Harp","N":"14","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":3,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":2,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Liam Harp","N":"14","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":3,"AB":2,"R":3,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"Liam Harp","N":"14","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":1,"AB":1,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Ethan Krametbauer","N":"21","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":3,"AB":3,"R":1,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":2,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Ethan Krametbauer","N":"21","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":3,"AB":2,"R":2,"H":2,"B1":2,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":1,"SF":0,"SB":1,"AVG":1.0},{"P":"Ethan Krametbauer","N":"21","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":1,"AB":0,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0},{"P":"Chase Cook","N":"11","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","PA":2,"AB":1,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.0},{"P":"Chase Cook","N":"11","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":3,"AB":3,"R":1,"H":1,"B1":1,"B2":0,"B3":0,"HR":0,"RBI":1,"BB":0,"SO":2,"HBP":0,"SF":0,"SB":1,"AVG":0.333},{"P":"Chase Cook","N":"11","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":1,"AB":0,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0},{"P":"Hyuga Manzella","N":"23","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":4,"AB":3,"R":1,"H":2,"B1":0,"B2":2,"B3":0,"HR":0,"RBI":5,"BB":1,"SO":0,"HBP":0,"SF":0,"SB":1,"AVG":0.667},{"P":"Hyuga Manzella","N":"23","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":2,"AB":2,"R":1,"H":1,"B1":0,"B2":1,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":0,"SF":0,"SB":0,"AVG":0.5},{"P":"William Spurlock","N":"35","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","PA":3,"AB":2,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":0,"HBP":1,"SF":0,"SB":0,"AVG":0.0},{"P":"William Spurlock","N":"35","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","PA":1,"AB":1,"R":0,"H":0,"B1":0,"B2":0,"B3":0,"HR":0,"RBI":0,"BB":0,"SO":1,"HBP":0,"SF":0,"SB":0,"AVG":0.0}],"plg":[{"P":"Luke Gerry","N":"15","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","IP":"2.0","BF":9,"H":3,"R":2,"ER":2,"BB":0,"SO":4,"HBP":0,"HR":0,"Pit":31,"Str":21},{"P":"Luke Gerry","N":"15","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","IP":"4.2","BF":20,"H":4,"R":3,"ER":3,"BB":2,"SO":8,"HBP":0,"HR":0,"Pit":81,"Str":54},{"P":"Sawyer Phillips","N":"9","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","IP":"2.0","BF":13,"H":5,"R":3,"ER":3,"BB":2,"SO":6,"HBP":0,"HR":0,"Pit":56,"Str":34},{"P":"Sawyer Phillips","N":"9","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","IP":"0.1","BF":7,"H":4,"R":6,"ER":6,"BB":2,"SO":1,"HBP":0,"HR":2,"Pit":25,"Str":13},{"P":"Wyatt Parker-Nelson","N":"3","Date":"2026-04-11","Opp":"TBD- 04/10/26, 6:00 PM","HA":"AWAY","Res":"L 4-9","IP":"0.1","BF":6,"H":1,"R":4,"ER":4,"BB":3,"SO":1,"HBP":1,"HR":0,"Pit":27,"Str":8},{"P":"Wyatt Parker-Nelson","N":"3","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","IP":"0.2","BF":7,"H":2,"R":3,"ER":3,"BB":1,"SO":1,"HBP":2,"HR":0,"Pit":26,"Str":12},{"P":"William Spurlock","N":"35","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","IP":"0.1","BF":6,"H":3,"R":3,"ER":3,"BB":2,"SO":0,"HBP":0,"HR":0,"Pit":26,"Str":12},{"P":"Jack Speer","N":"20","Date":"2026-04-18","Opp":"TBD- 04/18/26, 1:00 PM","HA":"AWAY","Res":"W 13-12","IP":"0.2","BF":2,"H":0,"R":0,"ER":0,"BB":0,"SO":2,"HBP":0,"HR":0,"Pit":9,"Str":6},{"P":"Jack Speer","N":"20","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","IP":"1.0","BF":8,"H":3,"R":4,"ER":4,"BB":3,"SO":0,"HBP":0,"HR":0,"Pit":43,"Str":23},{"P":"Liam Harp","N":"14","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","IP":"0.0","BF":4,"H":1,"R":3,"ER":3,"BB":3,"SO":0,"HBP":0,"HR":0,"Pit":15,"Str":2},{"P":"Ethan Krametbauer","N":"21","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","IP":"0.1","BF":6,"H":2,"R":4,"ER":4,"BB":2,"SO":0,"HBP":0,"HR":0,"Pit":22,"Str":8},{"P":"Lochlan Feero","N":"19","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","IP":"0.2","BF":6,"H":1,"R":6,"ER":6,"BB":3,"SO":1,"HBP":0,"HR":1,"Pit":27,"Str":8},{"P":"Brody Hill","N":"18","Date":"2026-04-18","Opp":"OC Junior American - McShane","HA":"HOME","Res":"L 2-22","IP":"0.1","BF":3,"H":1,"R":2,"ER":2,"BB":1,"SO":0,"HBP":0,"HR":0,"Pit":10,"Str":4}]}};
+var _ts = "Apr 18 2026 09:32 PM";
+var curTab = 'batting';
+var curTeam = 'all';
+var curSeason = 'all';
+var sortState = {};
+var viewMode = 'individual'; // 'individual' or 'team'
+
+function setViewMode(m) { viewMode = m; render(); }
+// Init filters
+function initFilters() {
+  var teams = {}, seasons = {};
+  Object.keys(D).forEach(function(k) {
+    var t = D[k];
+    teams[k] = t.n + (t.is_our_team ? ' ★' : '');
+    if (t.season) seasons[t.season] = t.season;
+  });
+  var ts = document.getElementById('flt-team');
+  ts.innerHTML = '<option value="all">All Teams</option>';
+  // Our teams first
+  Object.keys(D).filter(function(k){ return D[k].is_our_team; }).forEach(function(k) {
+    ts.innerHTML += '<option value="'+k+'">'+teams[k]+'</option>';
+  });
+  Object.keys(D).filter(function(k){ return !D[k].is_our_team; }).sort(function(a,b) {
+    return D[a].n.localeCompare(D[b].n);
+  }).forEach(function(k) {
+    ts.innerHTML += '<option value="'+k+'">'+teams[k]+'</option>';
+  });
+  var ss = document.getElementById('flt-season');
+  ss.innerHTML = '<option value="all">All Seasons</option>';
+  Object.keys(seasons).sort().reverse().forEach(function(s) {
+    ss.innerHTML += '<option value="'+s+'">'+s+'</option>';
+  });
+}
+
+function applyFilters() {
+  curTeam = document.getElementById('flt-team').value;
+  curSeason = document.getElementById('flt-season').value;
+  render();
+}
+
+function setTab(t) {
+  curTab = t;
+  document.querySelectorAll('.nav-btn').forEach(function(b) {
+    b.className = 'nav-btn' + (b.textContent.toLowerCase().replace(/[^a-z]/g,'').indexOf(
+      t.replace('-','').replace('log','log')) >= 0 ? ' a' : '');
+  });
+  // simpler: just match by data attr
+  render();
+  // fix active state
+  document.querySelectorAll('.nav-btn').forEach(function(b,i) {
+    var tabs = ['batting','pitching','bat-log','pitch-log','scouting','leaders'];
+    b.className = 'nav-btn' + (tabs[i] === t ? ' a' : '');
+  });
+}
+
+function getTeams() {
+  var keys = Object.keys(D);
+  if (curTeam !== 'all') keys = keys.filter(function(k){ return k === curTeam; });
+  if (curSeason !== 'all') keys = keys.filter(function(k){ return D[k].season === curSeason; });
+  return keys;
+}
+
+// Sortable table builder
+function makeTable(id, cols, rows, defaultSort, defaultDir) {
+  if (!rows.length) return '<div class="empty">No data for this filter</div>';
+  var st = sortState[id] || { col: defaultSort || cols[0].k, dir: defaultDir || 'desc' };
+  sortState[id] = st;
+  var sorted = rows.slice().sort(function(a,b) {
+    var va = a[st.col], vb = b[st.col];
+    if (typeof va === 'string') return st.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    return st.dir === 'asc' ? va - vb : vb - va;
+  });
+  var h = '<div class="tbl-wrap"><table class="tbl"><thead><tr>';
+  cols.forEach(function(c) {
+    var cls = st.col === c.k ? ' class="sorted'+(st.dir==='asc'?' asc':'')+'"' : '';
+    var q = String.fromCharCode(39);
+    h += '<th'+cls+' onclick="sortTbl('+q+id+q+','+q+c.k+q+')">'+c.l+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  sorted.forEach(function(r) {
+    h += '<tr>';
+    cols.forEach(function(c,i) {
+      var v = r[c.k];
+      if (c.fmt === 'avg' && typeof v === 'number') v = v > 0 ? v.toFixed(3) : '.000';
+      else if (c.fmt === 'pct' && typeof v === 'number') v = v.toFixed(1) + '%';
+      else if (c.fmt === 'era' && typeof v === 'number') v = v >= 999 ? '—' : v.toFixed(2);
+      else if (c.fmt === 'dec2' && typeof v === 'number') v = v >= 999 ? '—' : v.toFixed(2);
+      else if (c.fmt === 'dec1' && typeof v === 'number') v = v.toFixed(1);
+      h += '<td>'+(v === 0 && i > 0 && c.fmt !== 'avg' ? '<span style="color:var(--tx3)">0</span>' : v)+'</td>';
+    });
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function sortTbl(id, col) {
+  var st = sortState[id] || {};
+  if (st.col === col) st.dir = st.dir === 'desc' ? 'asc' : 'desc';
+  else { st.col = col; st.dir = col === 'P' || col === 'Date' ? 'asc' : 'desc'; }
+  sortState[id] = st;
+  render();
+}
+
+// Toggle UI
+function toggleUI() {
+  var q = String.fromCharCode(39);
+  return '<div class="toggle">' +
+    '<button class="toggle-btn'+(viewMode==='individual'?' a':'')+'" onclick="setViewMode('+q+'individual'+q+')">Individual</button>' +
+    '<button class="toggle-btn'+(viewMode==='team'?' a':'')+'" onclick="setViewMode('+q+'team'+q+')">Team</button></div>';
+}
+
+// Aggregate batting rows into team totals
+function aggBatting(keys) {
+  var teams = [];
+  keys.forEach(function(k) {
+    var t = D[k];
+    var r = {P:t.n,G:t.g,PA:0,AB:0,R:0,H:0,B1:0,B2:0,B3:0,HR:0,RBI:0,BB:0,SO:0,HBP:0,SF:0,SB:0,HHn:0,BIP:0,FPSn:0};
+    t.b.forEach(function(b) {
+      r.PA+=b.PA; r.AB+=b.AB; r.R+=b.R; r.H+=b.H; r.B2+=b.B2; r.B3+=b.B3; r.HR+=b.HR;
+      r.RBI+=b.RBI; r.BB+=b.BB; r.SO+=b.SO; r.HBP+=b.HBP; r.SF+=b.SF; r.SB+=b.SB;
+      r.B1+=b.B1; r.HHn+=b.HHn; r.BIP+=b.BIP; r.FPSn+=(b.FPS/100)*b.PA;
+    });
+    r.AVG = r.AB > 0 ? r.H / r.AB : 0;
+    r.OBP = (r.AB+r.BB+r.HBP+r.SF) > 0 ? (r.H+r.BB+r.HBP)/(r.AB+r.BB+r.HBP+r.SF) : 0;
+    var tb = r.B1 + r.B2*2 + r.B3*3 + r.HR*4;
+    r.SLG = r.AB > 0 ? tb / r.AB : 0;
+    r.OPS = r.OBP + r.SLG;
+    r.FPS = r.PA > 0 ? (r.FPSn / r.PA) * 100 : 0;
+    r.HH = r.BIP > 0 ? (r.HHn / r.BIP) * 100 : 0;
+    r._team = t.n; r._our = t.is_our_team;
+    teams.push(r);
+  });
+  return teams;
+}
+
+// Aggregate pitching rows into team totals
+function aggPitching(keys) {
+  var teams = [];
+  keys.forEach(function(k) {
+    var t = D[k];
+    var r = {P:t.n,G:t.g,BF:0,AB:0,H:0,R:0,ER:0,BB:0,SO:0,HBP:0,HR:0,Pit:0,GB:0,AO:0,
+      outs:0,fps_n:0,fps_d:0,str_n:0,hha:0,bip:0};
+    t.p.forEach(function(p) {
+      r.BF+=p.BF; r.AB+=p.AB; r.H+=p.H; r.R+=p.R; r.ER+=p.ER; r.BB+=p.BB; r.SO+=p.SO;
+      r.HBP+=p.HBP; r.HR+=p.HR; r.Pit+=p.Pit; r.GB+=p.GB; r.AO+=p.AO;
+      // Parse IP string to outs
+      var parts = p.IP.split('.');
+      r.outs += parseInt(parts[0])*3 + parseInt(parts[1]||'0');
+      r.fps_n += (p.FPS/100)*p.BF; r.fps_d += p.BF;
+      r.str_n += (p.Spct/100)*p.Pit;
+      r.hha += (p.HHp/100)*(p.BF>0?p.BF:0); r.bip += p.BF;
+    });
+    var ip = r.outs / 3;
+    r.IP = Math.floor(r.outs/3)+'.'+(r.outs%3);
+    r.ERA = ip > 0 ? (r.ER * 6) / ip : 999;
+    r.WHIP = ip > 0 ? (r.BB + r.H) / ip : 999;
+    r.BAA = r.AB > 0 ? r.H / r.AB : 0;
+    r.Kp = r.BF > 0 ? (r.SO / r.BF) * 100 : 0;
+    r.PBF = r.BF > 0 ? r.Pit / r.BF : 0;
+    r.FPS = r.fps_d > 0 ? (r.fps_n / r.fps_d) * 100 : 0;
+    r.Spct = r.Pit > 0 ? (r.str_n / r.Pit) * 100 : 0;
+    r.GBAO = r.AO > 0 ? (r.GB / r.AO).toFixed(2) : '';
+    r.HHp = r.bip > 0 ? (r.hha / r.bip) * 100 : 0;
+    r._team = t.n; r._our = t.is_our_team;
+    teams.push(r);
+  });
+  return teams;
+}
+
+// === BATTING TAB ===
+function renderBatting() {
+  var keys = getTeams();
+  var h = toggleUI();
+  var rows;
+  if (viewMode === 'team') {
+    rows = aggBatting(keys);
+  } else {
+    rows = [];
+    keys.forEach(function(k) {
+      var t = D[k];
+      t.b.forEach(function(b) {
+        var r = Object.assign({}, b);
+        r._team = t.n;
+        r._our = t.is_our_team;
+        if (curTeam === 'all') r.P = r.P + ' — ' + t.n;
+        rows.push(r);
+      });
+    });
+  }
+  var cols = [
+    {k:'P',l:viewMode==='team'?'Team':'Player'},{k:'G',l:'G'},{k:'PA',l:'PA'},{k:'AB',l:'AB'},
+    {k:'R',l:'R'},{k:'H',l:'H'},{k:'B2',l:'2B'},{k:'B3',l:'3B'},{k:'HR',l:'HR'},
+    {k:'RBI',l:'RBI'},{k:'BB',l:'BB'},{k:'SO',l:'SO'},{k:'HBP',l:'HBP'},{k:'SB',l:'SB'},
+    {k:'AVG',l:'AVG',fmt:'avg'},{k:'OBP',l:'OBP',fmt:'avg'},{k:'SLG',l:'SLG',fmt:'avg'},
+    {k:'OPS',l:'OPS',fmt:'avg'},{k:'FPS',l:'FPS%',fmt:'dec1'},{k:'HH',l:'HH%',fmt:'dec1'},
+  ];
+  h += makeTable('bat', cols, rows, 'OPS', 'desc');
+  return h;
+}
+
+// === PITCHING TAB ===
+function renderPitching() {
+  var keys = getTeams();
+  var h = toggleUI();
+  var rows;
+  if (viewMode === 'team') {
+    rows = aggPitching(keys);
+  } else {
+    rows = [];
+    keys.forEach(function(k) {
+      var t = D[k];
+      t.p.forEach(function(p) {
+        var r = Object.assign({}, p);
+        r._team = t.n;
+        if (curTeam === 'all') r.P = r.P + ' — ' + t.n;
+        rows.push(r);
+      });
+    });
+  }
+  var cols = [
+    {k:'P',l:viewMode==='team'?'Team':'Player'},{k:'G',l:'G'},{k:'IP',l:'IP'},{k:'BF',l:'BF'},
+    {k:'H',l:'H'},{k:'R',l:'R'},{k:'ER',l:'ER'},{k:'BB',l:'BB'},{k:'SO',l:'SO'},
+    {k:'HBP',l:'HBP'},{k:'HR',l:'HR'},{k:'ERA',l:'ERA',fmt:'era'},
+    {k:'WHIP',l:'WHIP',fmt:'dec2'},{k:'BAA',l:'BAA',fmt:'avg'},
+    {k:'Kp',l:'K%',fmt:'dec1'},{k:'Pit',l:'#P'},{k:'PBF',l:'P/BF',fmt:'dec1'},
+    {k:'FPS',l:'FPS%',fmt:'dec1'},{k:'Spct',l:'STR%',fmt:'dec1'},
+    {k:'GB',l:'GB'},{k:'AO',l:'AO'},{k:'HHp',l:'HH%',fmt:'dec1'},
+  ];
+  h += makeTable('pit', cols, rows, 'BF', 'desc');
+  return h;
+}
+
+// === GAME LOG BATTING ===
+function renderBatLog() {
+  var keys = getTeams();
+  var rows = [];
+  keys.forEach(function(k) {
+    var t = D[k];
+    (t.blg || []).forEach(function(r) {
+      var row = Object.assign({}, r);
+      if (curTeam === 'all') row.P = row.P + ' — ' + t.n;
+      rows.push(row);
+    });
+  });
+  var cols = [
+    {k:'P',l:'Player'},{k:'Date',l:'Date'},{k:'Opp',l:'Opp'},{k:'HA',l:'H/A'},{k:'Res',l:'Result'},
+    {k:'PA',l:'PA'},{k:'AB',l:'AB'},{k:'R',l:'R'},{k:'H',l:'H'},
+    {k:'B2',l:'2B'},{k:'B3',l:'3B'},{k:'HR',l:'HR'},
+    {k:'RBI',l:'RBI'},{k:'BB',l:'BB'},{k:'SO',l:'SO'},{k:'SB',l:'SB'},
+    {k:'AVG',l:'AVG',fmt:'avg'},
+  ];
+  return makeTable('blg', cols, rows, 'Date', 'desc');
+}
+
+// === GAME LOG PITCHING ===
+function renderPitchLog() {
+  var keys = getTeams();
+  var rows = [];
+  keys.forEach(function(k) {
+    var t = D[k];
+    (t.plg || []).forEach(function(r) {
+      var row = Object.assign({}, r);
+      if (curTeam === 'all') row.P = row.P + ' — ' + t.n;
+      rows.push(row);
+    });
+  });
+  var cols = [
+    {k:'P',l:'Player'},{k:'Date',l:'Date'},{k:'Opp',l:'Opp'},{k:'HA',l:'H/A'},{k:'Res',l:'Result'},
+    {k:'IP',l:'IP'},{k:'BF',l:'BF'},{k:'H',l:'H'},{k:'R',l:'R'},{k:'ER',l:'ER'},
+    {k:'BB',l:'BB'},{k:'SO',l:'SO'},{k:'HBP',l:'HBP'},{k:'HR',l:'HR'},
+    {k:'Pit',l:'#P'},{k:'Str',l:'Str'},
+  ];
+  return makeTable('plg', cols, rows, 'Date', 'desc');
+}
+
+// === SCOUTING TAB ===
+// Hitter tags
+function hTags(b) {
+  var t = [];
+  if (b.OPS >= 1.2) t.push({l:'ELITE',c:'#ef4444'});
+  else if (b.OPS >= 1.0) t.push({l:'DANGEROUS',c:'#f59e0b'});
+  if (b.AVG >= 0.500 && b.PA >= 15) t.push({l:'HIGH AVG',c:'#10b981'});
+  if (b.HR >= 5) t.push({l:'POWER',c:'#8b5cf6'});
+  else if (b.HR >= 3) t.push({l:'POP',c:'#a78bfa'});
+  if (b.FPS >= 70) t.push({l:'AGGRESSIVE',c:'#f97316'});
+  if (b.FPS < 46) t.push({l:'PATIENT',c:'#06b6d4'});
+  if (b.HH >= 35) t.push({l:'HARD HITTER',c:'#dc2626'});
+  if (b.PA > 0 && b.SO / b.PA >= 0.25) t.push({l:'K PRONE',c:'#f87171'});
+  if (b.PA > 0 && b.BB / b.PA >= 0.18) t.push({l:'WALKS',c:'#34d399'});
+  if (b.PA >= 10 && b.HBP / b.PA >= 0.12) t.push({l:'GETS HIT',c:'#fb923c'});
+  return t;
+}
+
+// Pitcher tags
+function pTags(p) {
+  var t = [], br = p.BB / p.BF;
+  if (p.Kp >= 25) t.push({l:'STRIKEOUT',c:'#8b5cf6'});
+  if (br >= 0.15) t.push({l:'WILD',c:'#ef4444'});
+  if (p.HBP / p.BF >= 0.065) t.push({l:'HITS BATTERS',c:'#f97316'});
+  if (p.FPS >= 68) t.push({l:'GETS AHEAD',c:'#10b981'});
+  if (p.FPS < 50) t.push({l:'FALLS BEHIND',c:'#f59e0b'});
+  if (p.BAA >= 0.38) t.push({l:'HITTABLE',c:'#ef4444'});
+  if (p.BAA <= 0.2) t.push({l:'TOUGH',c:'#059669'});
+  if (p.GB > p.AO * 2) t.push({l:'GROUNDBALL',c:'#6366f1'});
+  if (p.PBF >= 3.8) t.push({l:'HIGH COUNTS',c:'#f59e0b'});
+  if (p.HHp >= 30) t.push({l:'GETS HIT HARD',c:'#dc2626'});
+  if (p.Spct >= 65) t.push({l:'HIGH STRIKE%',c:'#10b981'});
+  if (p.Spct > 0 && p.Spct < 55) t.push({l:'LOW STRIKE%',c:'#ef4444'});
+  return t;
+}
+
+function tagHTML(tags) {
+  return tags.map(function(x) {
+    return '<span class="tag" style="background:'+x.c+'18;color:'+x.c+';border:1px solid '+x.c+'44">'+x.l+'</span>';
+  }).join('');
+}
+
+// Hitter advice
+function hAdvice(b) {
+  var a = [];
+  if (b.FPS >= 70) a.push("Ultra-aggressive — swings at "+b.FPS.toFixed(0)+"% of first pitches. Start off-speed or nibble edges.");
+  else if (b.FPS >= 60) a.push("Swings early ("+b.FPS.toFixed(0)+"% FPS). Don't give him a fastball to hit pitch one.");
+  if (b.PA > 0 && b.SO / b.PA <= 0.06 && b.AVG >= 0.4 && b.PA >= 20) a.push("Almost never strikes out and hits everything. Pitch around with runners on.");
+  if (b.PA > 0 && b.SO / b.PA >= 0.25) a.push("K prone ("+(b.SO/b.PA*100).toFixed(0)+"% K rate). Challenge with fastballs, expand the zone.");
+  if (b.HR >= 5) a.push("Major power — "+b.HR+" HR. Keep everything down and away.");
+  else if (b.HR >= 3) a.push("Power threat ("+b.HR+" HR). Keep the ball down.");
+  if (b.OPS >= 1.5) a.push("Elite hitter ("+b.OPS.toFixed(3)+" OPS). Pitch around with runners on.");
+  if (b.HH >= 40) a.push("Crushes the ball — "+b.HH.toFixed(0)+"% hard hit. Nothing over the plate.");
+  if (b.PA > 0 && b.BB / b.PA > 0.18) a.push("Very patient — walks "+(b.BB/b.PA*100).toFixed(0)+"%. Must throw strikes.");
+  if (b.FPS < 46) a.push("Patient ("+b.FPS.toFixed(0)+"% FPS). Takes first pitch — use that free strike.");
+  return a;
+}
+
+// Pitcher analysis
+function pCommand(p) {
+  var a = [], br = p.BB / p.BF;
+  if (br >= 0.20) a.push("Poor command — walks "+Math.round(br*100)+"% of batters.");
+  else if (br >= 0.15) a.push("Below average command — "+Math.round(br*100)+"% walk rate.");
+  else if (br <= 0.07) a.push("Excellent command — only "+Math.round(br*100)+"% walk rate.");
+  if (p.Spct >= 65) a.push("High strike rate ("+p.Spct.toFixed(0)+"%). Stays in the zone.");
+  else if (p.Spct > 0 && p.Spct < 55) a.push("Low strike rate ("+p.Spct.toFixed(0)+"%). Struggles to find the zone.");
+  if (p.FPS >= 70) a.push("Gets ahead with "+p.FPS.toFixed(0)+"% first-pitch strikes.");
+  else if (p.FPS < 48) a.push("Falls behind often — only "+p.FPS.toFixed(0)+"% first-pitch strikes.");
+  return a;
+}
+
+function pStrength(p) {
+  var a = [];
+  if (p.Kp >= 25) a.push("Strikeout pitcher — "+p.Kp.toFixed(0)+"% K rate. Can miss bats.");
+  else if (p.Kp >= 18) a.push("Gets his share of Ks ("+p.Kp.toFixed(0)+"% K rate).");
+  else a.push("Low K rate ("+p.Kp.toFixed(0)+"%). Relies on contact, not strikeouts.");
+  if (p.GB > p.AO * 2) a.push("Heavy groundball pitcher (GB/FO "+p.GBAO+"). Induces weak ground contact.");
+  if (p.BAA <= 0.25) a.push("Tough to hit ("+p.BAA.toFixed(3)+" BAA). Hitters struggle to barrel him.");
+  return a;
+}
+
+function pExploit(p) {
+  var a = [], br = p.BB / p.BF;
+  if (br >= 0.15) a.push("Take early. Force strikes — walks snowball.");
+  if (p.FPS < 48) a.push("Take first pitch — he falls behind "+Math.round(100-p.FPS)+"% of the time.");
+  if (p.FPS >= 70 && br <= 0.10) a.push("Attacks early and it works. Be ready pitch one.");
+  if (p.BAA >= 0.35) a.push("Hittable ("+p.BAA.toFixed(3)+" BAA). Swing at strikes, don't chase.");
+  if (p.HHp >= 30) a.push("Gets hit hard ("+p.HHp.toFixed(0)+"% HH). Swing with authority.");
+  if (p.PBF >= 3.8) a.push("Batters grind him ("+p.PBF.toFixed(1)+" P/BF). Work counts.");
+  if (p.GB > p.AO * 2) a.push("Heavy GB pitcher — look to elevate.");
+  return a;
+}
+
+function sparkHTML(hits) {
+  if (!hits || !hits.length) return '';
+  return '<div style="margin-bottom:8px"><div style="font-size:9px;color:var(--tx3);margin-bottom:3px;font-weight:600;font-family:var(--mono)">GAME-BY-GAME HITS</div><div class="spark">' +
+    hits.map(function(v) {
+      var c = v === 0 ? 'var(--tx3)' : v >= 3 ? '#ef4444' : v >= 2 ? '#f59e0b' : '#10b981';
+      return '<div class="spark-bar" style="height:'+Math.max(3,v*5)+'px;background:'+c+';opacity:'+(v===0?0.25:1)+'"></div>';
+    }).join('') + '</div></div>';
+}
+
+var expandedH = {}, expandedP = {};
+
+function toggleH(key) { expandedH[key] = !expandedH[key]; render(); }
+function toggleP(key) { expandedP[key] = !expandedP[key]; render(); }
+
+function renderScouting() {
+  var keys = getTeams();
+  if (!keys.length) return '<div class="empty">No teams match this filter</div>';
+  var h = '';
+  keys.forEach(function(k) {
+    var t = D[k];
+    h += '<div class="sec" style="color:var(--ac)">' + t.n + (t.is_our_team ? '<span class="our">OUR TEAM</span>' : '') + ' — ' + t.g + ' games</div>';
+    
+    // Hitters
+    h += '<div class="sec" style="color:var(--tx2)">Hitters</div>';
+    t.b.forEach(function(b, i) {
+      var key = k + '_h_' + i;
+      var open = expandedH[key];
+      var tags = hTags(b), adv = hAdvice(b), hits = t.gl[b.P];
+      var q = String.fromCharCode(39);
+      h += '<div class="card"><div class="card-hdr" onclick="toggleH('+q+key+q+')">';
+      h += '<div class="jersey">'+b.N+'</div><div class="card-info"><div class="card-name">'+b.P+'</div>';
+      h += '<div class="card-sub">'+b.AVG.toFixed(3)+'/'+b.OBP.toFixed(3)+'/'+b.SLG.toFixed(3)+' · '+b.PA+'PA · '+b.HR+'HR · '+b.RBI+'RBI</div>';
+      h += '</div><div class="card-arrow'+(open?' open':'')+'">&#9662;</div></div>';
+      if (open) {
+        h += '<div class="card-body open"><div class="tags">'+tagHTML(tags)+'</div>';
+        h += sparkHTML(hits);
+        h += '<div class="sg sg4"><div class="sb"><div class="sv">'+b.OPS.toFixed(3)+'</div><div class="sl">OPS</div></div>';
+        h += '<div class="sb"><div class="sv">'+b.FPS.toFixed(0)+'%</div><div class="sl">1st Pitch Swing</div></div>';
+        h += '<div class="sb"><div class="sv">'+b.HH.toFixed(0)+'%</div><div class="sl">Hard Hit%</div></div>';
+        h += '<div class="sb"><div class="sv">'+(b.PA>0?(b.BB/b.PA*100).toFixed(0):0)+'%</div><div class="sl">Walk Rate</div></div></div>';
+        if (adv.length) {
+          h += '<div class="abox amber"><div class="abox-t">⚾ Pitching Plan</div>';
+          adv.forEach(function(a) { h += '<div class="abox-b">'+a+'</div>'; });
+          h += '</div>';
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+    });
+    
+    // Pitchers
+    h += '<div class="sec" style="color:var(--tx2)">Pitchers</div>';
+    t.p.forEach(function(p, i) {
+      var key = k + '_p_' + i;
+      var open = expandedP[key];
+      var tags = pTags(p), cmd = pCommand(p), str = pStrength(p), exp = pExploit(p);
+      var q = String.fromCharCode(39);
+      h += '<div class="card"><div class="card-hdr" onclick="toggleP('+q+key+q+')">';
+      h += '<div class="jersey">'+p.N+'</div><div class="card-info"><div class="card-name">'+p.P+'</div>';
+      h += '<div class="card-sub">'+p.IP+'IP · '+(p.ERA>=999?'—':p.ERA.toFixed(2))+' ERA · '+p.SO+'K/'+p.BB+'BB · '+p.PBF.toFixed(1)+' P/BF</div>';
+      h += '</div><div class="card-arrow'+(open?' open':'')+'">&#9662;</div></div>';
+      if (open) {
+        h += '<div class="card-body open"><div class="tags">'+tagHTML(tags)+'</div>';
+        h += '<div class="sg sg3"><div class="sb"><div class="sv">'+(p.Spct>0?p.Spct.toFixed(0)+'%':'—')+'</div><div class="sl">Strike%</div></div>';
+        h += '<div class="sb"><div class="sv">'+p.FPS.toFixed(0)+'%</div><div class="sl">FPS%</div></div>';
+        h += '<div class="sb"><div class="sv">'+Math.round(p.BB/p.BF*100)+'%</div><div class="sl">BB%</div></div></div>';
+        h += '<div class="sg sg3"><div class="sb"><div class="sv">'+p.PBF.toFixed(1)+'</div><div class="sl">P/BF</div></div>';
+        h += '<div class="sb"><div class="sv">'+p.HHp.toFixed(0)+'%</div><div class="sl">HH% Against</div></div>';
+        h += '<div class="sb"><div class="sv">'+p.GB+'/'+p.AO+'</div><div class="sl">GB/FO</div></div></div>';
+        if (cmd.length) {
+          h += '<div class="abox blue"><div class="abox-t">🎯 Command & Control</div>';
+          cmd.forEach(function(a) { h += '<div class="abox-b">'+a+'</div>'; });
+          h += '</div>';
+        }
+        if (str.length) {
+          h += '<div class="abox green"><div class="abox-t">💪 How He Succeeds</div>';
+          str.forEach(function(a) { h += '<div class="abox-b">'+a+'</div>'; });
+          h += '</div>';
+        }
+        if (exp.length) {
+          h += '<div class="abox red"><div class="abox-t">🎯 How To Beat Him</div>';
+          exp.forEach(function(a) { h += '<div class="abox-b">'+a+'</div>'; });
+          h += '</div>';
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+    });
+  });
+  return h;
+}
+
+// === LEADERBOARD TAB ===
+function renderLeaders() {
+  var keys = getTeams();
+  // Collect all batters and pitchers with team label
+  var allB = [], allP = [];
+  keys.forEach(function(k) {
+    var t = D[k];
+    t.b.forEach(function(b) {
+      allB.push(Object.assign({_team:t.n, _our:t.is_our_team}, b));
+    });
+    t.p.forEach(function(p) {
+      allP.push(Object.assign({_team:t.n, _our:t.is_our_team}, p));
+    });
+  });
+  
+  function lbSection(title, arr, key, fmt, minField, minVal, limit) {
+    var filtered = arr.filter(function(x) { return (x[minField] || 0) >= minVal; });
+    filtered.sort(function(a,b) { return b[key] - a[key]; });
+    if (fmt === 'low') {
+      filtered.sort(function(a,b) { return a[key] - b[key]; });
+    }
+    filtered = filtered.slice(0, limit || 10);
+    if (!filtered.length) return '';
+    var h = '<div class="sec">' + title + '</div><div class="card" style="cursor:default">';
+    filtered.forEach(function(r, i) {
+      h += '<div class="lb-row"><div class="lb-rank'+(i<3?' g':'')+'">'+( i+1)+'</div>';
+      h += '<div style="flex:1"><div class="lb-name">'+r.P+(r._our?' <span class="our">★</span>':'')+'</div>';
+      h += '<div class="lb-team">'+r._team+'</div></div>';
+      var v = r[key];
+      if (fmt === 'avg' || fmt === 'low') v = typeof v === 'number' ? v.toFixed(3) : v;
+      else if (fmt === 'pct') v = v.toFixed(1) + '%';
+      else if (fmt === 'era') v = v >= 999 ? '—' : v.toFixed(2);
+      else if (fmt === 'dec1') v = v.toFixed(1);
+      h += '<div class="lb-val">'+v+'</div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+  
+  var h = '';
+  h += '<div class="sec" style="color:var(--ac);font-size:12px">BATTING LEADERBOARDS</div>';
+  h += lbSection('OPS (min 15 PA)', allB, 'OPS', 'avg', 'PA', 15, 15);
+  h += lbSection('Batting Average (min 15 PA)', allB, 'AVG', 'avg', 'PA', 15, 15);
+  h += lbSection('Home Runs', allB, 'HR', 'int', 'HR', 1, 15);
+  h += lbSection('RBI', allB, 'RBI', 'int', 'RBI', 1, 15);
+  h += lbSection('Hard Hit% (min 10 BIP)', allB, 'HH', 'pct', 'BIP', 10, 15);
+  
+  h += '<div class="sec" style="color:var(--ac);font-size:12px;margin-top:24px">PITCHING LEADERBOARDS</div>';
+  h += lbSection('ERA (min 3 IP)', allP, 'ERA', 'era', 'BF', 12, 15);
+  h += lbSection('Strikeout % (min 15 BF)', allP, 'Kp', 'pct', 'BF', 15, 15);
+  h += lbSection('WHIP (min 3 IP)', allP, 'WHIP', 'low', 'BF', 12, 15);
+  h += lbSection('Strike% (min 30 pitches)', allP, 'Spct', 'pct', 'Pit', 30, 15);
+  
+  return h || '<div class="empty">No data for this filter</div>';
+}
+
+// Main render
+function render() {
+  var ct = document.getElementById('ct');
+  switch(curTab) {
+    case 'batting': ct.innerHTML = renderBatting(); break;
+    case 'pitching': ct.innerHTML = renderPitching(); break;
+    case 'bat-log': ct.innerHTML = renderBatLog(); break;
+    case 'pitch-log': ct.innerHTML = renderPitchLog(); break;
+    case 'scouting': ct.innerHTML = renderScouting(); break;
+    case 'leaders': ct.innerHTML = renderLeaders(); break;
+  }
+}
+
+initFilters();
+render();
+</script>
+</body>
+</html>
